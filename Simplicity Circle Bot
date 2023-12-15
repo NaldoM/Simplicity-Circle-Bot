@@ -1,0 +1,80 @@
+import ccxt
+import time
+import smtplib
+from email.message import EmailMessage
+
+api_key = 'YOUR_API_KEY'
+secret_key = 'YOUR_SECRET_KEY'
+
+exchange = ccxt.bitmex({
+    'apiKey': api_key,
+    'secret': secret_key,
+})
+
+symbols = ['XAUUSD', 'EURUSD', 'USDJPY']
+timeframe = '1h'
+
+def check_buy_signal(symbol):
+    ticker = exchange.fetch_ticker(symbol)
+    last_price = ticker['last']
+
+    if symbol == 'XAUUSD':
+        return last_price > 1000
+    elif symbol == 'EURUSD':
+        return last_price > 1.1000
+    elif symbol == 'USDJPY':
+        candles = exchange.fetch_ohlcv(symbol, timeframe)
+        last_candle = candles[-1]
+        second_last_candle = candles[-2]
+
+        # Check if the current candle's close is above the second candle's close as a confirmation point
+        return last_candle[4] > second_last_candle[4]
+
+def check_sell_signal(symbol):
+    ticker = exchange.fetch_ticker(symbol)
+    last_price = ticker['last']
+
+    if symbol == 'XAUUSD':
+        return last_price < 900
+    elif symbol == 'EURUSD':
+        return last_price < 1.0500
+    elif symbol == 'USDJPY':
+        candles = exchange.fetch_ohlcv(symbol, timeframe)
+        last_candle = candles[-1]
+        second_last_candle = candles[-2]
+
+        # Check if the current candle's close is below the second candle's close as a confirmation point
+        return last_candle[4] < second_last_candle[4]
+
+def send_email(subject, body):
+    # Replace the following with your actual email credentials
+    email_sender ='makatiaenemuhenje@gmail.com'
+    email_receiver = 'makatiaenemuhenje@gmail.com 
+    email_password = 'Ronaldo1'
+
+    msg = EmailMessage()
+    msg.set_content(body)
+    msg['Subject'] = subject
+    msg['From'] = email_sender
+    msg['To'] = email_receiver
+
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+        server.login(email_sender, email_password)
+        server.send_message(msg)
+
+while True:
+    for symbol in symbols:
+        if check_buy_signal(symbol):
+            subject = f'Buy Opportunity in {symbol}'
+            body = f'Current price of {symbol} is above the buy threshold. Time to buy!'
+            send_email(subject, body)
+            # Uncomment the following line if you want to execute a real trade
+            # exchange.create_market_buy_order(symbol, 1)
+        elif check_sell_signal(symbol):
+            subject = f'Sell Opportunity in {symbol}'
+            body = f'Current price of {symbol} is below the sell threshold. Time to sell!'
+            send_email(subject, body)
+            # Uncomment the following line if you want to execute a real trade
+            # exchange.create_market_sell_order(symbol, 1)
+
+    time.sleep(60) # Wait for 1 minute before checking the price again
